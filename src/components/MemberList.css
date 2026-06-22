@@ -1,0 +1,94 @@
+.member-list {
+  width: var(--member-list-width);
+  height: 100%;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  animation: slideIn 0.2s ease-out;
+}
+
+.member-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 52px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.member-list-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center;
+  transition: color 0.12s, background 0.12s;
+}
+.member-list-close:hover { color: var(--text-primary); background: var(--hover); }
+
+.member-list-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.member-list-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Groups */
+.member-group { margin-bottom: 4px; }
+
+.member-group-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.member-group-count {
+  margin-left: auto;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-full);
+  padding: 0 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Member row */
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 0;
+  cursor: default;
+  transition: background 0.1s;
+}
+.member-row:hover { background: var(--hover); }
+
+.member-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.member-row:hover .member-name { color: var(--text-primary); }
+
+.member-badge { flex-shrink: 0; }
+.member-badge--admin { color: var(--mention-badge); }
+.member-badge--mod   { color: var(--accent); }

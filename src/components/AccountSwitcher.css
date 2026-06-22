@@ -1,0 +1,213 @@
+/* ── Bottom account bar ───────────────────────────────────────────────────── */
+
+.account-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* Identity button (avatar + text + chevron) */
+.account-bar-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 6px;
+  border-radius: var(--radius-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.account-bar-identity:hover,
+.account-bar-identity--open {
+  background: var(--hover);
+}
+
+/* Avatar + sync dot */
+.account-bar-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.account-bar-sync-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-base);
+}
+.account-sync-dot--online { background: var(--online); }
+.account-sync-dot--away   { background: var(--away); }
+.account-sync-dot--error  { background: var(--unread-badge); }
+
+/* Text block */
+.account-bar-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.account-bar-display-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.account-bar-user-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* Chevron */
+.account-bar-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  transform: rotate(180deg);
+}
+.account-bar-chevron--up {
+  transform: rotate(0deg);
+}
+
+/* Action buttons */
+.account-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.account-action-btn {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.account-action-btn:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+/* ── Account-switch popover ───────────────────────────────────────────────── */
+
+.account-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  right: 8px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  z-index: 200;
+  animation: popoverSlideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popoverSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.account-popover-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  padding: 4px 8px 6px;
+}
+
+.account-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.account-popover-item:hover {
+  background: var(--hover);
+}
+
+.account-popover-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.account-popover-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  border: 2px solid var(--bg-overlay);
+}
+.account-popover-dot--mention {
+  background: var(--accent);
+  animation: mentionPulse 2s ease-out infinite;
+}
+
+@keyframes mentionPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(79, 142, 247, 0.6); }
+  60%  { box-shadow: 0 0 0 5px rgba(79, 142, 247, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 142, 247, 0); }
+}
+
+.account-popover-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.account-popover-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-popover-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,385 @@
+/* ─── Overlay ────────────────────────────────────────────────────────────────── */
+
+.upm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ─── Modal shell ─────────────────────────────────────────────────────────────  */
+
+.upm-modal {
+  position: relative;
+  width: 380px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* ─── Banner ──────────────────────────────────────────────────────────────────  */
+
+.upm-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 96px;
+  pointer-events: none;
+}
+
+/* ─── Close ───────────────────────────────────────────────────────────────────  */
+
+.upm-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.upm-close:hover {
+  background: rgba(0, 0, 0, 0.65);
+  color: var(--text-primary);
+}
+
+/* ─── Avatar row ──────────────────────────────────────────────────────────────  */
+
+.upm-avatar-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 56px 20px 0; /* pushes avatar below the banner */
+  flex-shrink: 0;
+}
+
+.upm-avatar-wrap {
+  flex-shrink: 0;
+}
+
+.upm-avatar {
+  border: 3px solid var(--bg-elevated);
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+}
+
+.upm-avatar-actions {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+
+/* ─── Role chip ───────────────────────────────────────────────────────────────  */
+
+.upm-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Action buttons ──────────────────────────────────────────────────────────  */
+
+.upm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.upm-action-btn:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.upm-action-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.upm-action-btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+/* ─── Identity block ──────────────────────────────────────────────────────────  */
+
+.upm-identity {
+  padding: 12px 20px 0;
+  flex-shrink: 0;
+}
+
+.upm-name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.upm-mxid-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upm-mxid {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+/* ─── Copy button (small inline) ─────────────────────────────────────────────  */
+
+.upm-copy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.upm-copy-btn:hover { background: var(--hover); color: var(--text-primary); }
+.upm-copy-btn--done { color: var(--online); }
+
+/* ─── Tabs ────────────────────────────────────────────────────────────────────  */
+
+.upm-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 14px 20px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.upm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.1s, background 0.1s;
+}
+.upm-tab:hover { color: var(--text-secondary); background: var(--hover); }
+.upm-tab--active {
+  color: var(--accent);
+}
+.upm-tab--active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+}
+
+.upm-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ─── Body (scrollable) ───────────────────────────────────────────────────────  */
+
+.upm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  min-height: 0;
+}
+
+/* ─── Profile tab ─────────────────────────────────────────────────────────────  */
+
+.upm-stats {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+}
+
+.upm-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+}
+.upm-stat:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.upm-stat:last-child  { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-left: none; }
+.upm-stat:only-child  { border-radius: var(--radius-sm); }
+
+.upm-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.upm-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+/* ─── Field section ───────────────────────────────────────────────────────────  */
+
+.upm-field-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upm-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.upm-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.upm-field-value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.upm-field-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.upm-field-value--mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ─── Rooms tab ───────────────────────────────────────────────────────────────  */
+
+.upm-rooms-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upm-room-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  color: inherit;
+}
+.upm-room-row:hover {
+  background: var(--hover);
+}
+.upm-room-row:hover .upm-room-open {
+  opacity: 1;
+}
+
+.upm-room-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.upm-room-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.upm-room-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.upm-room-open {
+  color: var(--text-muted);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.1s;
+}

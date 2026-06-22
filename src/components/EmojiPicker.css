@@ -1,0 +1,20 @@
+.emoji-picker-wrapper {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  animation: fadeIn 0.12s ease-out;
+}
+
+/* Ensure the emoji picker inherits the app's font and fits our style */
+.emoji-picker-wrapper .EmojiPickerReact {
+  --epr-bg-color: var(--bg-elevated);
+  --epr-category-label-bg-color: var(--bg-elevated);
+  --epr-text-color: var(--text-primary);
+  --epr-search-input-bg-color: var(--bg-base);
+  --epr-search-input-text-color: var(--text-primary);
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: var(--radius-md) !important;
+  font-family: inherit !important;
+}

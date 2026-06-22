@@ -1,0 +1,7 @@
+/* Global overrides on top of theme.css */
+
+/* Remove default Vite styles */
+#root {
+  display: flex;
+  height: 100%;
+}

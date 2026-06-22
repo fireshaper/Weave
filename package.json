@@ -1,0 +1,42 @@
+{
+  "name": "weave",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
+    "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-store": "^2.4.2",
+    "dompurify": "^3.4.11",
+    "emoji-picker-react": "^4.19.1",
+    "indexeddbstore": "^0.1.0",
+    "lucide-react": "^0.577.0",
+    "matrix-js-sdk": "^41.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-error-boundary": "^6.1.1",
+    "react-router-dom": "^7.13.1",
+    "tauri-plugin-keyring-api": "^0.1.1",
+    "uuid": "^13.0.0",
+    "vite-plugin-node-polyfills": "^0.25.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/dompurify": "^3.0.5",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0"
+  }
+}

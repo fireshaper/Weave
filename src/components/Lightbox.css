@@ -1,0 +1,47 @@
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background-color: rgba(0, 0, 0, 0.85);
+  cursor: zoom-out;
+  animation: lightbox-fade-in 120ms ease-out;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: default;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.lightbox-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes lightbox-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

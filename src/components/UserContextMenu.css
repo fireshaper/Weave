@@ -1,0 +1,150 @@
+/* ─── Profile Modal Overlay ────────────────────────────────────────────────── */
+
+.user-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.user-profile-modal {
+  position: relative;
+  width: 320px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* ─── Banner ────────────────────────────────────────────────────────────────── */
+
+.user-profile-banner {
+  height: 80px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* ─── Close button ──────────────────────────────────────────────────────────── */
+
+.user-profile-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  z-index: 1;
+}
+.user-profile-close:hover {
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text-primary);
+}
+
+/* ─── Avatar ────────────────────────────────────────────────────────────────── */
+
+.user-profile-avatar-wrap {
+  position: absolute;
+  top: 44px; /* (80px banner - 72px avatar/2) = 44px → centres on boundary */
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.user-profile-avatar {
+  border: 3px solid var(--bg-elevated);
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.user-profile-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Body ──────────────────────────────────────────────────────────────────── */
+
+.user-profile-body {
+  padding: 50px 20px 20px; /* 50px top to clear the avatar */
+}
+
+.user-profile-name {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.user-profile-mxid {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+  margin-bottom: 18px;
+}
+
+/* ─── Action buttons ─────────────────────────────────────────────────────────  */
+
+.user-profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-profile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.user-profile-btn:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.user-profile-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.user-profile-btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}

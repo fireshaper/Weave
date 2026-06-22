@@ -1,0 +1,48 @@
+/* Always occupies 28px so the timeline height never shifts when typing starts/stops */
+.typing-indicator {
+  height: 28px;
+  flex-shrink: 0;
+  padding: 4px 20px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.typing-indicator-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+
+.typing-indicator--active .typing-indicator-inner {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: bounce-typing 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.typing-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}

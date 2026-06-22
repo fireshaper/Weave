@@ -1,0 +1,414 @@
+/* ─── Overlay ─────────────────────────────────────────────────────────────────  */
+
+.rim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ─── Modal shell ─────────────────────────────────────────────────────────────  */
+
+.rim-modal {
+  position: relative;
+  width: 420px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+/* ─── Header ──────────────────────────────────────────────────────────────────  */
+
+.rim-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 20px 0;
+  flex-shrink: 0;
+}
+
+.rim-header-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.rim-enc-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--online);
+  border: 2px solid var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.rim-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rim-room-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 5px;
+  word-break: break-word;
+}
+
+.rim-room-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rim-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rim-chip--encrypted {
+  border-color: rgba(63, 185, 80, 0.4);
+  color: var(--online);
+  background: rgba(63, 185, 80, 0.08);
+}
+
+.rim-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.rim-close:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+/* ─── Topic ───────────────────────────────────────────────────────────────────  */
+
+.rim-topic {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 10px 20px 0;
+  flex-shrink: 0;
+}
+
+/* ─── Stats ───────────────────────────────────────────────────────────────────  */
+
+.rim-stats {
+  display: flex;
+  gap: 20px;
+  padding: 14px 20px 0;
+  flex-shrink: 0;
+}
+
+.rim-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rim-stat-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rim-stat-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rim-stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ─── Quick actions ───────────────────────────────────────────────────────────  */
+
+.rim-actions {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px 0;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.rim-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.rim-action-btn:hover {
+  background: var(--hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+.rim-action-btn--active {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rim-action-btn--danger {
+  color: #f47174;
+  border-color: rgba(235, 77, 75, 0.3);
+}
+.rim-action-btn--danger:hover {
+  background: rgba(235, 77, 75, 0.1);
+  border-color: rgba(235, 77, 75, 0.6);
+  color: #ff8080;
+}
+
+/* ─── Tabs ────────────────────────────────────────────────────────────────────  */
+
+.rim-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 14px 20px 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rim-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.1s, background 0.1s;
+}
+.rim-tab:hover { color: var(--text-secondary); background: var(--hover); }
+.rim-tab--active { color: var(--accent); }
+.rim-tab--active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+}
+
+.rim-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ─── Tab body ────────────────────────────────────────────────────────────────  */
+
+.rim-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  min-height: 0;
+}
+
+/* ─── Overview tab ────────────────────────────────────────────────────────────  */
+
+.rim-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rim-field-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.rim-field-value-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rim-field-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.rim-field-value--mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.rim-copy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.rim-copy-btn:hover { background: var(--hover); color: var(--text-primary); }
+.rim-copy-btn--done { color: var(--online); }
+
+.rim-aliases {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rim-alias-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.rim-alias-icon { color: var(--text-muted); flex-shrink: 0; }
+
+.rim-enc-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--online);
+  font-weight: 500;
+}
+.rim-enc-icon { flex-shrink: 0; }
+
+/* ─── Members tab ─────────────────────────────────────────────────────────────  */
+
+.rim-members {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rim-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+.rim-member-row:hover { background: var(--hover); }
+
+.rim-member-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rim-member-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.rim-member-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.rim-member-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rim-member-role--admin {
+  background: rgba(240, 165, 0, 0.12);
+  color: var(--mention-badge);
+  border: 1px solid rgba(240, 165, 0, 0.3);
+}
+
+.rim-member-role--mod {
+  background: rgba(79, 142, 247, 0.1);
+  color: var(--accent);
+  border: 1px solid rgba(79, 142, 247, 0.25);
+}

@@ -1,0 +1,224 @@
+.inbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.inbox-panel {
+  position: absolute;
+  top: 8px;
+  left: calc(var(--sidebar-spaces-width) + 6px);
+  z-index: 41;
+  width: 340px;
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated, var(--bg-base));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 10px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.inbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inbox-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.inbox-markread {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm, 6px);
+}
+.inbox-markread:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+/* ── Tabs ── */
+.inbox-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+
+.inbox-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.inbox-tab:hover {
+  color: var(--text-primary);
+}
+.inbox-tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.inbox-tab-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-full, 9px);
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+/* ── List ── */
+.inbox-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.inbox-item {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  text-align: left;
+}
+.inbox-item:hover {
+  background: var(--bg-overlay);
+}
+.inbox-item--read {
+  opacity: 0.55;
+}
+
+.inbox-item-avatar {
+  flex-shrink: 0;
+}
+
+.inbox-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inbox-item-sender {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.inbox-item-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+
+.inbox-item-room {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--accent);
+  margin: 1px 0 2px;
+}
+
+.inbox-item-text {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.inbox-item-dot {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.inbox-count-badge {
+  flex-shrink: 0;
+  align-self: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-full, 10px);
+  background: var(--bg-overlay);
+  color: var(--text-secondary);
+}
+.inbox-count-badge--mention {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Empty states ── */
+.inbox-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+.inbox-empty p {
+  margin: 6px 0 0;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.inbox-empty span {
+  font-size: 12px;
+  max-width: 220px;
+}

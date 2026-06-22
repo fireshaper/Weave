@@ -1,0 +1,15 @@
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  color: white;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  user-select: none;
+}

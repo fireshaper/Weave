@@ -1,0 +1,197 @@
+.key-unlock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background-color: var(--overlay-bg, rgba(0, 0, 0, 0.6));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: keyUnlockFadeIn 0.2s ease-out;
+}
+
+@keyframes keyUnlockFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.key-unlock-modal {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: keyUnlockSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes keyUnlockSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.key-unlock-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.key-unlock-close:hover {
+  background-color: var(--hover-bg);
+  color: var(--text);
+}
+
+.key-unlock-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.key-unlock-icon {
+  color: var(--primary);
+}
+
+.key-unlock-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.key-unlock-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.key-unlock-desc strong {
+  color: var(--text);
+}
+
+.key-unlock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.key-unlock-form input {
+  width: 100%;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.key-unlock-form input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-alpha);
+}
+
+.key-unlock-form input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.key-unlock-error {
+  font-size: 13px;
+  color: var(--danger, #ff4d4f);
+  background-color: rgba(255, 77, 79, 0.1);
+  padding: 8px 12px;
+  border-radius: 4px;
+  animation: keyUnlockFadeIn 0.2s ease;
+}
+
+.key-unlock-warning {
+  font-size: 13px;
+  color: #f0a040;
+  background-color: rgba(240, 160, 64, 0.12);
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  animation: keyUnlockFadeIn 0.2s ease;
+}
+
+.key-unlock-warning span {
+  line-height: 1.4;
+}
+
+
+.key-unlock-form button[type="submit"] {
+  width: 100%;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.key-unlock-form button[type="submit"]:hover:not(:disabled) {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.key-unlock-form button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.key-unlock-form button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: keyUnlockSpin 1s linear infinite;
+}
+
+@keyframes keyUnlockSpin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
