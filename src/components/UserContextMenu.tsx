@@ -23,8 +23,8 @@ interface UserContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  /** Called when "Mention" is selected — passes the display name */
-  onMention?: (mention: string) => void;
+  /** Called when "Mention" is selected — passes the display name and userId */
+  onMention?: (mention: string, userId?: string) => void;
   /** Called when "View Profile" is selected — parent mounts the modal so it outlives this component */
   onShowProfile?: (user: UserTarget) => void;
 }
@@ -66,6 +66,7 @@ const UserContextMenu: React.FC<UserContextMenuProps> = ({
           { type: "m.room.encryption", state_key: "", content: { algorithm: "m.megolm" } },
         ],
       });
+      await accountManager.addDirectMessage(activeAccountId, user.userId, result.room_id);
       setActiveRoom(result.room_id);
     } catch (e) {
       console.warn("[UserContextMenu] Could not open DM:", e);
@@ -73,9 +74,9 @@ const UserContextMenu: React.FC<UserContextMenuProps> = ({
   }, [client, activeAccountId, user.userId, setActiveRoom, onClose]);
 
   const handleMention = useCallback(() => {
-    onMention?.(user.displayName);
+    onMention?.(user.displayName, user.userId);
     onClose();
-  }, [user.displayName, onMention, onClose]);
+  }, [user.displayName, user.userId, onMention, onClose]);
 
   const handleCopyUserId = useCallback(() => {
     navigator.clipboard.writeText(user.userId).catch(() => {});

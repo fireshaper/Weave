@@ -5,12 +5,14 @@ import { useTimelineStore } from "../store/timelineStore";
 import { useAccountsStore } from "../store/accountsStore";
 import { useRoomsStore } from "../store/roomsStore";
 import { accountManager } from "../accounts/AccountManager";
+import { loadE2EEKey } from "../accounts/credentialStore";
 import MessageBubble from "../components/MessageBubble";
 import type { ReadReceiptUser } from "../components/MessageBubble";
 import EmojiPicker from "../components/EmojiPicker";
 import DateSeparator from "../components/DateSeparator";
 import TypingIndicator from "../components/TypingIndicator";
 import MemberList from "../components/MemberList";
+import Avatar from "../components/Avatar";
 import UserContextMenu from "../components/UserContextMenu";
 import type { UserTarget } from "../components/UserContextMenu";
 import RoomInfoModal from "../components/RoomInfoModal";
@@ -27,6 +29,54 @@ function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
+}
+
+interface MentionMember {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+}
+
+// Detect an in-progress "@name" mention immediately before the caret.
+// Triggers once the user has typed "@" followed by at least one character, and
+// only when the "@" starts a word (beginning of input or after whitespace).
+function detectMention(value: string, caret: number): { query: string; start: number } | null {
+  const before = value.slice(0, caret);
+  const match = before.match(/(?:^|\s)@([^\s@]+)$/);
+  if (!match) return null;
+  const query = match[1];
+  return { query, start: caret - query.length - 1 };
+}
+
+const MENTION_LIMIT = 8;
+
+// Escape text for safe inclusion in an HTML formatted_body.
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Build an HTML formatted_body from a plain-text body, turning each "@DisplayName"
+// that maps to a userId into a matrix.to mention pill. Returns null when no
+// mention text is actually present in the body. Longer names are matched first so
+// "@John Smith" wins over "@John".
+function buildFormattedBody(body: string, mentions: Map<string, string>): string | null {
+  const present = [...mentions.entries()]
+    .filter(([name]) => body.includes(`@${name}`))
+    .sort((a, b) => b[0].length - a[0].length);
+  if (present.length === 0) return null;
+
+  let html = escapeHtml(body);
+  for (const [name, uid] of present) {
+    const token = escapeHtml(`@${name}`);
+    const pill = `<a href="https://matrix.to/#/${encodeURIComponent(uid)}">${escapeHtml(name)}</a>`;
+    html = html.split(token).join(pill);
+  }
+  return html;
 }
 
 const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
@@ -47,6 +97,16 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Inline "Unlock" flow for undecryptable (E2EE) messages: verifies this device
+  // and restores keys from backup so the conversation can decrypt.
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockBanner, setUnlockBanner] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // @mention autocomplete: tracks the in-progress query, the index of the "@"
+  // in the input, and the highlighted result. `null` when not mentioning.
+  const [mention, setMention] = useState<{ query: string; start: number; index: number } | null>(null);
+  // Display name → userId for mentions the user has inserted, so we can attach
+  // m.mentions on send and reliably ping them. Cleared after each send.
+  const mentionedRef = useRef<Map<string, string>>(new Map());
   const [showComposerEmoji, setShowComposerEmoji] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
@@ -96,7 +156,8 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
   );
 
   const handleMention = useCallback(
-    (mention: string) => {
+    (mention: string, userId?: string) => {
+      if (userId) mentionedRef.current.set(mention, userId);
       // Insert "@DisplayName" at cursor or append to current input
       const ta = textareaRef.current;
       if (ta) {
@@ -138,6 +199,84 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
       }
     },
     [input]
+  );
+
+  // Joined members of this room, used to resolve @mention autocomplete.
+  // Recomputed as the timeline changes so newly-loaded members appear.
+  const roomMembers = React.useMemo<MentionMember[]>(() => {
+    if (!activeAccountId) return [];
+    const client = accountManager.getClient(activeAccountId);
+    const room = client?.getRoom(roomId);
+    if (!room) return [];
+    return room
+      .getMembers()
+      .filter((m) => m.membership === "join")
+      .map((m) => ({
+        userId: m.userId,
+        displayName: m.name ?? m.userId,
+        avatarUrl: m.getMxcAvatarUrl() ?? undefined,
+      }));
+  // messages.length is included so the list refreshes as members lazy-load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAccountId, roomId, messages.length]);
+
+  // Filtered + ranked autocomplete results for the active @mention query.
+  const mentionResults = React.useMemo<MentionMember[]>(() => {
+    if (!mention) return [];
+    const q = mention.query.toLowerCase();
+    const myId = activeAccountId
+      ? accountManager.getClient(activeAccountId)?.getUserId() ?? ""
+      : "";
+    return roomMembers
+      .filter((m) => m.userId !== myId)
+      .filter((m) => {
+        const name = m.displayName.toLowerCase();
+        const local = m.userId.replace(/^@/, "").toLowerCase();
+        return name.includes(q) || local.includes(q);
+      })
+      .sort((a, b) => {
+        // Prefer names that start with the query, then alphabetical.
+        const aStarts = a.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = b.displayName.toLowerCase().startsWith(q) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return a.displayName.localeCompare(b.displayName);
+      })
+      .slice(0, MENTION_LIMIT);
+  }, [mention, roomMembers, activeAccountId]);
+
+  // Insert the chosen member, replacing the in-progress "@query" with
+  // "@DisplayName ", and record the userId so we can ping on send.
+  const applyMention = useCallback(
+    (member: MentionMember) => {
+      const ta = textareaRef.current;
+      if (!mention || !ta) return;
+      const caret = ta.selectionStart ?? input.length;
+      const before = input.slice(0, mention.start);
+      const after = input.slice(caret);
+      const insertText = `@${member.displayName} `;
+      const newValue = before + insertText + after;
+      setInput(newValue);
+      mentionedRef.current.set(member.displayName, member.userId);
+      setMention(null);
+      requestAnimationFrame(() => {
+        ta.focus();
+        const pos = (before + insertText).length;
+        ta.setSelectionRange(pos, pos);
+      });
+    },
+    [mention, input]
+  );
+
+  // Update input value and re-evaluate any in-progress @mention.
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setInput(value);
+      const caret = e.target.selectionStart ?? value.length;
+      const detected = detectMention(value, caret);
+      setMention(detected ? { ...detected, index: 0 } : null);
+    },
+    []
   );
 
   // Receipt tick — bump this to force re-computation of the receipt map
@@ -200,6 +339,8 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
     prevMessageCount.current = 0;
     setCanLoadMore(true);
     setLoadingMore(false);
+    setMention(null);
+    mentionedRef.current.clear();
     scrolledForRoom.current = null; // auto-scroll effect will scroll once messages are rendered
   }, [roomId]);
 
@@ -464,6 +605,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
     const currentReply = replyTo;
     setInput("");
     setReplyTo(null);
+    setMention(null);
     try {
       const content: Record<string, unknown> = { msgtype: MsgType.Text, body };
       if (currentReply) {
@@ -471,7 +613,24 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
           "m.in_reply_to": { event_id: currentReply.eventId },
         };
       }
+      // Attach intentional mentions (MSC3952) for users whose "@DisplayName"
+      // still appears in the body, so they receive a highlight/ping.
+      const userIds = new Set<string>();
+      for (const [name, uid] of mentionedRef.current) {
+        if (body.includes(`@${name}`)) userIds.add(uid);
+      }
+      if (userIds.size > 0) {
+        content["m.mentions"] = { user_ids: [...userIds] };
+        // Send an HTML formatted_body so the mention renders as a clickable pill
+        // (and is reliably highlighted) in this and other Matrix clients.
+        const formatted = buildFormattedBody(body, mentionedRef.current);
+        if (formatted) {
+          content.format = "org.matrix.custom.html";
+          content.formatted_body = formatted;
+        }
+      }
       await client.sendMessage(roomId, content as any);
+      mentionedRef.current.clear();
     } catch (err) {
       console.error("[RoomView] send failed:", err);
       setInput(body);
@@ -510,6 +669,68 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
       console.error("[RoomView] send reaction failed:", err);
     }
   }, [activeAccountId]);
+
+  // One-click unlock for "Waiting for decryption keys" messages. Mirrors the
+  // Settings → Security flow: cross-sign this device (so peers re-share keys
+  // going forward) then restore megolm keys from backup (for older messages).
+  const handleUnlock = useCallback(async () => {
+    if (!activeAccountId || unlocking) return;
+    const client = accountManager.getClient(activeAccountId);
+    if (!client) return;
+    setUnlocking(true);
+    setUnlockBanner(null);
+    try {
+      const userId = client.getUserId() ?? "";
+      const savedKey = await loadE2EEKey(userId).catch(() => null);
+
+      const verify = await accountManager.selfVerifyWithSecurityKey(activeAccountId, savedKey);
+      if (!verify.ok && verify.needsKey) {
+        setUnlockBanner({
+          kind: "error",
+          text: "Enter your Security Key in Settings → Security first, then try Unlock again.",
+        });
+        return;
+      }
+
+      const restore = await accountManager.restoreKeyBackupAndRetry(activeAccountId, savedKey);
+      const retry = await accountManager.retryDecryption(activeAccountId);
+
+      if (retry.recovered > 0) {
+        setUnlockBanner({
+          kind: "ok",
+          text: `Decrypted ${retry.recovered} message(s).${
+            retry.stillFailed > 0
+              ? ` ${retry.stillFailed} still locked — their keys aren't in your backup.`
+              : ""
+          }`,
+        });
+      } else if (retry.stillFailed > 0) {
+        // Keys imported (or device verified) but the locked messages' megolm
+        // sessions aren't in the backup. They only exist on the device that
+        // decrypted them — ask that device to forward them over to-device
+        // messages. They'll unlock automatically when the keys arrive.
+        await accountManager.requestRoomKeysForFailures(activeAccountId);
+        setUnlockBanner({
+          kind: "ok",
+          text: `${retry.stillFailed} message(s) aren't in your backup. Requested their keys from your other devices — keep this app and the other one open; they'll unlock automatically when the keys arrive (up to a minute).`,
+        });
+      } else if (verify.ok || (restore.ok && (restore.imported ?? 0) > 0)) {
+        setUnlockBanner({
+          kind: "ok",
+          text: "Device verified. New messages will decrypt; older ones as their keys arrive.",
+        });
+      } else {
+        setUnlockBanner({
+          kind: "error",
+          text: verify.error ?? restore.error ?? "Couldn't unlock. Check your Security Key in Settings → Security.",
+        });
+      }
+    } catch (e: any) {
+      setUnlockBanner({ kind: "error", text: e?.message ?? "Unlock failed." });
+    } finally {
+      setUnlocking(false);
+    }
+  }, [activeAccountId, unlocking]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -550,6 +771,31 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // While the @mention popup is open, hijack navigation/selection keys.
+    if (mention && mentionResults.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMention((m) => (m ? { ...m, index: (m.index + 1) % mentionResults.length } : m));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMention((m) =>
+          m ? { ...m, index: (m.index - 1 + mentionResults.length) % mentionResults.length } : m
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        applyMention(mentionResults[Math.min(mention.index, mentionResults.length - 1)]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMention(null);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -622,6 +868,21 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
           </div>
         ) : (
           <>
+            {/* Unlock result banner (E2EE) */}
+            {unlockBanner && (
+              <div className={`room-unlock-banner room-unlock-banner--${unlockBanner.kind}`}>
+                <span>{unlockBanner.text}</span>
+                <button
+                  type="button"
+                  className="room-unlock-banner-close"
+                  onClick={() => setUnlockBanner(null)}
+                  aria-label="Dismiss"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {/* Timeline */}
             <div className="room-view-timeline" ref={timelineRef} onScroll={handleScroll}>
           {loadingMore && (
@@ -706,6 +967,8 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
                   readReceipts={readReceiptMap.get(msg.eventId)}
                   onContextMenuUser={handleContextMenuUser}
                   onJumpToEvent={handleJumpToEvent}
+                  onUnlock={msg.isEncrypted && !msg.body ? handleUnlock : undefined}
+                  unlocking={unlocking}
                 />
               </React.Fragment>
             );
@@ -738,6 +1001,34 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
             style={{ display: "none" }}
             onChange={handleFileUpload}
           />
+          {mention && mentionResults.length > 0 && (
+            <div className="mention-autocomplete" role="listbox">
+              {mentionResults.map((m, i) => (
+                <button
+                  key={m.userId}
+                  type="button"
+                  role="option"
+                  aria-selected={i === mention.index}
+                  className={`mention-option ${i === mention.index ? "mention-option--active" : ""}`}
+                  onMouseDown={(e) => {
+                    // Prevent the textarea from losing focus before we insert.
+                    e.preventDefault();
+                    applyMention(m);
+                  }}
+                  onMouseEnter={() => setMention((cur) => (cur ? { ...cur, index: i } : cur))}
+                >
+                  <Avatar
+                    name={m.displayName}
+                    avatarUrl={m.avatarUrl}
+                    homeserver={activeAccount?.homeserver}
+                    size={24}
+                  />
+                  <span className="mention-option-name truncate">{m.displayName}</span>
+                  <span className="mention-option-id truncate">{m.userId}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {replyTo && (
             <div className="reply-preview">
               <span className="reply-preview-label">Replying to</span>
@@ -772,7 +1063,7 @@ const RoomView: React.FC<RoomViewProps> = ({ roomId }) => {
               className="room-input"
               placeholder={`Message ${room?.name ?? "#room"}…`}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               rows={1}
               aria-label="Message input"

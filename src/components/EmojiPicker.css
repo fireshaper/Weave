@@ -1,20 +1,181 @@
 .emoji-picker-wrapper {
   position: absolute;
-  bottom: calc(100% + 8px);
   right: 0;
   z-index: 100;
   animation: fadeIn 0.12s ease-out;
 }
 
-/* Ensure the emoji picker inherits the app's font and fits our style */
+/* Float above the trigger (used by the composer, which sits at the window bottom) */
+.emoji-picker-wrapper--top {
+  bottom: calc(100% + 8px);
+}
+
+/* Drop down beneath the trigger (used by the message reaction button) */
+.emoji-picker-wrapper--bottom {
+  top: calc(100% + 8px);
+}
+
+/*
+ * emoji-picker-react ships NO static CSS — its entire layout + theme is injected
+ * at runtime by the `flairup` helper. That runtime injection does not reliably
+ * apply in the Tauri production build (it works in `tauri dev`), which leaves the
+ * picker unstyled: no size constraint, no dark theme, and CDN emoji images render
+ * at their natural 64px and overlap.
+ *
+ * The rules below are a self-contained fallback that re-implements the structural
+ * pieces using our own theme tokens, so the picker renders correctly whether or
+ * not flairup's injected stylesheet is present. They intentionally mirror the
+ * library's own values (emoji size 30px + 5px padding = 40px cell).
+ */
 .emoji-picker-wrapper .EmojiPickerReact {
+  /* The library's CSS custom properties, restated so calc()-based sizing works */
+  --epr-emoji-size: 30px;
+  --epr-emoji-padding: 5px;
+  --epr-emoji-fullsize: 40px;
+
+  /* Theme overrides (consumed by flairup when it *does* load) */
   --epr-bg-color: var(--bg-elevated);
   --epr-category-label-bg-color: var(--bg-elevated);
   --epr-text-color: var(--text-primary);
+  --epr-hover-bg-color: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  --epr-focus-bg-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
   --epr-search-input-bg-color: var(--bg-base);
   --epr-search-input-text-color: var(--text-primary);
+  --epr-picker-border-color: var(--border);
+
+  display: flex !important;
+  flex-direction: column !important;
+  width: 340px !important;
+  height: 420px !important;
+  box-sizing: border-box;
+  overflow: hidden !important;
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow-lg) !important;
   border-radius: var(--radius-md) !important;
   font-family: inherit !important;
+}
+
+.emoji-picker-wrapper .EmojiPickerReact * {
+  box-sizing: border-box;
+}
+
+/* Header / search */
+.emoji-picker-wrapper .EmojiPickerReact .epr-header {
+  flex: 0 0 auto;
+  padding: 8px;
+}
+
+/* The input itself only carries a flairup-generated hashed class, so target it
+   through its stable container instead. */
+.emoji-picker-wrapper .EmojiPickerReact .epr-search-container {
+  display: block;
+  width: 100%;
+}
+
+.emoji-picker-wrapper .EmojiPickerReact .epr-search-container input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* The search magnifier icon and clear button are sprite-based elements the
+   library positions absolutely over the input. Without flairup they lose their
+   icons/positioning and the bare <button> renders as an empty box under the
+   search bar. Hide them — typing filters and deleting text clears. */
+.emoji-picker-wrapper .EmojiPickerReact .epr-icn-search,
+.emoji-picker-wrapper .EmojiPickerReact .epr-btn-clear-search {
+  display: none !important;
+}
+
+/* The skin-tone variation flyout is normally hidden by flairup until invoked.
+   Skin tones are disabled, so keep it hidden rather than letting the empty
+   box render inline. */
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji-variation-picker {
+  display: none !important;
+}
+
+/* Category navigation row — the icons are flairup sprite-based and render blank
+   without the injected stylesheet, so hide the bar. Search + scroll still work. */
+.emoji-picker-wrapper .EmojiPickerReact .epr-category-nav {
+  display: none !important;
+}
+
+/* Scrollable body */
+.emoji-picker-wrapper .EmojiPickerReact .epr-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji-category-label {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-elevated);
+  color: var(--text-secondary, var(--text-primary));
+}
+
+/* The emoji grid — this is what was broken (images had no cell to sit in) */
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji-category-content {
+  display: grid !important;
+  grid-gap: 0;
+  grid-template-columns: repeat(auto-fill, var(--epr-emoji-fullsize)) !important;
+  justify-content: space-between;
+  margin: 0 8px;
+  position: relative;
+}
+
+/* Individual emoji button */
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji {
+  width: var(--epr-emoji-fullsize) !important;
+  height: var(--epr-emoji-fullsize) !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+/* Clamp the CDN image into its cell — the core fix for the overlap */
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji-img {
+  width: var(--epr-emoji-fullsize) !important;
+  height: var(--epr-emoji-fullsize) !important;
+  max-width: var(--epr-emoji-fullsize) !important;
+  max-height: var(--epr-emoji-fullsize) !important;
+  min-width: var(--epr-emoji-fullsize) !important;
+  min-height: var(--epr-emoji-fullsize) !important;
+  padding: var(--epr-emoji-padding) !important;
+  object-fit: contain;
+  display: block;
+}
+
+/* Native emoji fallback (if emojiStyle is ever switched to native) */
+.emoji-picker-wrapper .EmojiPickerReact .epr-emoji-native {
+  font-size: var(--epr-emoji-size) !important;
+  line-height: 1;
+}
+
+.emoji-picker-wrapper .EmojiPickerReact .epr-hidden {
+  display: none !important;
 }

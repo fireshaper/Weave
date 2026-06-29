@@ -25,12 +25,31 @@ import type { RoomSummary } from "../types/matrix";
 import { buildMessageFromEvent } from "../utils/buildMessage";
 import { getCurrentWindow, UserAttentionType } from "@tauri-apps/api/window";
 
+/** Outcome of a forced decryption retry pass over all loaded timelines. */
+export interface RetryDecryptionResult {
+  /** Total encrypted events scanned. */
+  scanned: number;
+  /** Events that were undecryptable (UTD) before the retry. */
+  failedBefore: number;
+  /** Previously-failed events that decrypted successfully on retry. */
+  recovered: number;
+  /** Previously-failed events still undecryptable after the retry. */
+  stillFailed: number;
+}
+
 class AccountManager {
   private clients: Map<string, MatrixClient> = new Map();
   /** Cached space→children mapping per account, kept fresh by hydrateRoomList.
    *  Used by incremental buildRoomSummary calls (from event listeners) so that
    *  spaceIds are never wiped mid-session when no explicit map is provided. */
   private spaceChildMaps: Map<string, Map<string, Set<string>>> = new Map();
+  /** True once an account's initial sync (PREPARED) has completed. During the
+   *  initial sync the SDK replays every room's cached timeline through the
+   *  RoomEvent.Timeline handler; those replayed events must NOT mark rooms as
+   *  locally unread (read receipts aren't reconciled yet, so per-event read
+   *  checks are unreliable at that point). Only genuinely live events that
+   *  arrive after this flag is set should flag a room unread. */
+  private initialSyncComplete: Map<string, boolean> = new Map();
   /** Temporary in-memory keys set by the UI before calling bootstrapSecretStorage.
    *  Using a plain Map avoids any React/Zustand batching delays between the set
    *  and the synchronous callback read inside the SDK. */
@@ -85,6 +104,8 @@ class AccountManager {
     if (client) {
       client.stopClient();
       this.clients.delete(accountId);
+      this.initialSyncComplete.delete(accountId);
+      this.spaceChildMaps.delete(accountId);
     }
   }
 
@@ -183,6 +204,7 @@ class AccountManager {
       // every subsequent poll cycle — doing a full setRooms there replaces the
       // entire array each tick and is the primary cause of list flickering.
       if (state === "PREPARED") {
+        this.initialSyncComplete.set(config.id, true);
         this.hydrateRoomList(client, config.id);
         // The SDK processes notification counts slightly after PREPARED fires.
         // Re-hydrate at 1 s and 4 s to catch both fast and slow initial syncs.
@@ -247,8 +269,17 @@ class AccountManager {
       // Edit events (m.replace) — update the original message, don't append a new one.
       if (this.applyEditIfReplacement(event, room)) return;
 
+      // Only flag the room as locally unread for genuinely new, unread messages.
+      // During the initial sync the SDK replays each room's cached timeline through
+      // this handler; those events fire before PREPARED, when read receipts aren't
+      // yet reconciled, so we gate on initialSyncComplete rather than per-event read
+      // checks (which are unreliable at that point). Our own messages never count.
+      const myUserId = client.getUserId() ?? undefined;
+      const isMine = event.getSender() === myUserId;
+      const markUnread = (this.initialSyncComplete.get(config.id) ?? false) && !isMine;
+
       const msg = buildMessageFromEvent(event, room, client);
-      useTimelineStore.getState().appendMessage(room.roomId, msg);
+      useTimelineStore.getState().appendMessage(room.roomId, msg, markUnread);
 
       // Record an inbox entry if this event pinged the local user.
       this.recordMentionIfHighlight(event, room, config.id);
@@ -283,7 +314,7 @@ class AccountManager {
       if (oldEventId) {
         store.replaceMessage(room.roomId, oldEventId, msg);
       } else {
-        store.appendMessage(room.roomId, msg);
+        store.appendMessage(room.roomId, msg, false); // own message — never mark unread
       }
 
       const roomSummary = this.buildRoomSummary(room, config.id);
@@ -580,13 +611,23 @@ class AccountManager {
     // show a stable placeholder rather than "Unable to decrypt".
     const hasEncryptedWithNoPreview = !lastEvent && lastAnyEvent?.getType() === "m.room.encrypted";
 
+    const client = this.clients.get(accountId);
+    const myUserId = client?.getUserId() ?? undefined;
+
     let lastMessageTs = lastAnyEvent?.getTs?.();
-    if (!lastMessageTs && room.getMyMembership() === "invite") {
-      const client = this.clients.get(accountId);
-      if (client?.getUserId()) {
-        lastMessageTs = room.currentState?.getStateEvents("m.room.member", client.getUserId()!)?.getTs();
-      }
+    if (!lastMessageTs && room.getMyMembership() === "invite" && myUserId) {
+      lastMessageTs = room.currentState?.getStateEvents("m.room.member", myUserId)?.getTs();
     }
+
+    // The raw notification count (NotificationCountType.Total) counts thread
+    // notifications and, on a cold start from the IndexedDB cache, can stay
+    // non-zero for encrypted rooms even when the timeline has actually been read
+    // (the homeserver can't apply push rules to E2EE content, so it over-counts).
+    // Reconcile against the user's read receipt: if it has reached the latest
+    // message, the room is read — this prevents phantom unread dots on relaunch.
+    const latestEventId = lastAnyEvent?.getId?.();
+    const isRead =
+      myUserId && latestEventId ? room.hasUserReadEvent(myUserId, latestEventId) : false;
 
     return {
       roomId: room.roomId,
@@ -599,8 +640,8 @@ class AccountManager {
         : (lastEvent?.getContent?.()?.body ?? undefined),
       lastMessageTs,
       lastMessageSender: lastEvent?.getSender?.() ?? undefined,
-      unreadCount: unread,
-      notificationCount: notifs,
+      unreadCount: isRead ? 0 : unread,
+      notificationCount: isRead ? 0 : notifs,
       isDirect: this.isDirectRoom(room, accountId),
       memberCount: room.getJoinedMemberCount?.() ?? 0,
       roomType: room.isSpaceRoom() ? "m.space" : undefined,
@@ -629,6 +670,27 @@ class AccountManager {
     return memberCount === 2 || inviteAndJoinedCount === 2;
   }
 
+  /**
+   * Record a room as a direct message in the user's m.direct account data.
+   * Matrix's createRoom({ is_direct: true }) only flags the invite for the
+   * invitee — the *inviting* client must update m.direct itself, otherwise the
+   * room isn't recognised as a DM and future "Message" actions create duplicates.
+   */
+  async addDirectMessage(accountId: string, otherUserId: string, roomId: string): Promise<void> {
+    const client = this.clients.get(accountId);
+    if (!client) return;
+    const current = (client.getAccountData("m.direct" as any)?.getContent() ?? {}) as Record<string, string[]>;
+    const dmMap: Record<string, string[]> = { ...current };
+    const list = dmMap[otherUserId] ? [...dmMap[otherUserId]] : [];
+    if (!list.includes(roomId)) list.push(roomId);
+    dmMap[otherUserId] = list;
+    try {
+      await client.setAccountData("m.direct" as any, dmMap as any);
+    } catch (e) {
+      console.warn("[AccountManager] Failed to update m.direct:", e);
+    }
+  }
+
   async ensureOwnKeysFetched(accountId: string): Promise<void> {
     const client = this.clients.get(accountId);
     if (!client) return;
@@ -649,13 +711,16 @@ class AccountManager {
     }
   }
 
-  async retryDecryption(accountId: string): Promise<number> {
-    console.log(`[AccountManager] Retrying decryption for account: ${accountId}`);
+  async retryDecryption(accountId: string): Promise<RetryDecryptionResult> {
     const client = this.getClient(accountId);
-    if (!client) return 0;
+    if (!client) return { scanned: 0, failedBefore: 0, recovered: 0, stillFailed: 0 };
 
+    const crypto = client.getCrypto() as any;
     const rooms = client.getRooms();
-    let decryptCount = 0;
+    let scanned = 0;
+    let failedBefore = 0;
+    let recovered = 0;
+    let stillFailed = 0;
 
     for (const room of rooms) {
       // Cover the live timeline AND any earlier paginated windows
@@ -665,19 +730,260 @@ class AccountManager {
       for (const timeline of timelines) {
         const events = timeline?.getEvents() ?? [];
         for (const ev of events) {
-          if (ev.isEncrypted()) {
-            try {
-              decryptCount++;
+          if (!ev.isEncrypted()) continue;
+          scanned++;
+          const wasFailed = ev.isDecryptionFailure?.() ?? false;
+          try {
+            if (wasFailed) {
+              failedBefore++;
+              // Already-failed (UTD) events keep a placeholder clearEvent, which
+              // makes shouldAttemptDecryption() return false — so decryptEventIfNeeded()
+              // silently no-ops on exactly the messages we just imported keys for.
+              // Force a real re-decryption.
+              await (ev as any).attemptDecryption(crypto, { isRetry: true });
+            } else {
               await client.decryptEventIfNeeded(ev);
-            } catch (err) {
-              // Don't log every failure — it floods the console for rooms with many encrypted events
+            }
+          } catch {
+            // Don't log every failure — it floods the console for rooms with many encrypted events
+          }
+
+          if (wasFailed) {
+            if (ev.isDecryptionFailure?.()) {
+              stillFailed++;
+            } else {
+              recovered++;
+              // Don't rely solely on the MatrixEventEvent.Decrypted emit to refresh
+              // the UI — push the freshly-decrypted message into the store directly.
+              if (ev.getType() === "m.room.message" || ev.getType() === "m.room.encrypted") {
+                if (!this.applyEditIfReplacement(ev, room)) {
+                  const msg = buildMessageFromEvent(ev, room, client);
+                  useTimelineStore.getState().updateMessage(room.roomId, msg);
+                }
+              }
             }
           }
         }
       }
     }
-    console.log(`[AccountManager] Forced retry on ${decryptCount} encrypted events.`);
-    return decryptCount;
+    const result = { scanned, failedBefore, recovered, stillFailed };
+    console.log(`[AccountManager] retryDecryption ${accountId}:`, result);
+    return result;
+  }
+
+  /**
+   * Ask our other devices to forward the megolm sessions for messages we still
+   * can't decrypt ("key gossip"). This is the recovery path for DMs that were
+   * decrypted on another device (e.g. Element) but whose keys never made it into
+   * the encrypted key backup — restoring the backup can't help, but the device
+   * that holds the keys can forward them over to-device messages.
+   *
+   * Enables outgoing m.room_key_request on the OlmMachine, re-runs decryption so
+   * the machine registers exactly which sessions are missing (queuing a request
+   * for each), then flushes those requests to the server immediately rather than
+   * waiting for the next sync. The other device must be online and trust this
+   * one (Unlock cross-signs it first) for the keys to actually come back; when
+   * they do, the SDK retries decryption and our Decrypted handler unlocks the
+   * message automatically.
+   */
+  async requestRoomKeysForFailures(accountId: string): Promise<void> {
+    const client = this.getClient(accountId);
+    if (!client) return;
+    try {
+      const crypto = client.getCrypto() as any;
+      const olmMachine = crypto?.olmMachine ?? crypto?._olmMachine;
+      const requestsManager = crypto?.outgoingRequestsManager;
+      if (!olmMachine) {
+        console.warn("[AccountManager] requestRoomKeysForFailures: no OlmMachine available.");
+        return;
+      }
+      // Turn on to-device key requests so failed decryptions queue a gossip
+      // request for the missing session instead of silently giving up.
+      try {
+        olmMachine.roomKeyRequestsEnabled = true;
+      } catch (e) {
+        console.warn("[AccountManager] could not enable roomKeyRequestsEnabled:", e);
+      }
+      // Re-run decryption: each still-missing session gets registered and a
+      // request queued on the machine.
+      await this.retryDecryption(accountId);
+      // Flush the queued requests now instead of waiting for the next sync.
+      if (requestsManager?.doProcessOutgoingRequests) {
+        await requestsManager.doProcessOutgoingRequests();
+      }
+      console.log("[AccountManager] requestRoomKeysForFailures: key requests sent for", accountId);
+    } catch (e) {
+      console.warn("[AccountManager] requestRoomKeysForFailures failed (non-fatal):", e);
+    }
+  }
+
+  /**
+   * Cross-sign THIS device using our own self-signing key and publish the
+   * signature, marking the session as verified to other users/devices so they
+   * start sharing room keys with it. This is the non-interactive alternative to
+   * the device-to-device SAS dance (which requires a second session to respond).
+   *
+   * If the cross-signing private keys are already cached locally (the Security
+   * tab shows "Keys loaded"), no key is needed — `crossSignDevice` signs using
+   * the in-memory self-signing key. Otherwise the provided Security Key /
+   * passphrase is used to import them from secret storage first.
+   *
+   * After signing, restores key backup and retries decryption so DMs that were
+   * stuck on "Waiting for decryption keys" backfill once peers re-share keys.
+   */
+  async selfVerifyWithSecurityKey(
+    accountId: string,
+    key: string | null,
+  ): Promise<{ ok: boolean; crossSigned: boolean; needsKey?: boolean; error?: string }> {
+    const client = this.getClient(accountId);
+    if (!client) return { ok: false, crossSigned: false, error: "Account not found." };
+    const crypto = client.getCrypto() as any;
+    if (!crypto) return { ok: false, crossSigned: false, error: "Crypto backend is not running. Restart the app." };
+    const userId = client.getUserId();
+    const deviceId = client.getDeviceId();
+    if (!userId || !deviceId) return { ok: false, crossSigned: false, error: "Missing user/device id." };
+
+    const trimmed = key?.trim() || null;
+    try {
+      // If the self-signing private key isn't already in the crypto machine,
+      // import it from secret storage using the supplied Security Key.
+      let xs = await crypto.getCrossSigningStatus().catch(() => null);
+      if (!xs?.privateKeysCachedLocally?.selfSigningKey) {
+        if (!trimmed) {
+          return {
+            ok: false,
+            crossSigned: false,
+            needsKey: true,
+            error: "Cross-signing keys aren't loaded. Enter your Security Key first (“Re-enter Security Key”).",
+          };
+        }
+        this.setPendingKey(accountId, trimmed);
+        try {
+          // Accept the SSSS key; a bad MAC on a single secret (e.g. a stale
+          // backup key) is non-fatal for cross-signing import.
+          try {
+            await crypto.bootstrapSecretStorage({ setupNewKeyBackup: false, setupNewSecretStorage: false });
+          } catch (e: any) {
+            const msg = (e?.message ?? "").toLowerCase();
+            if (!msg.includes("bad mac") && !msg.includes("bad_mac")) {
+              return { ok: false, crossSigned: false, error: e?.message ?? "Security Key was rejected." };
+            }
+          }
+          // Ensure our public cross-signing keys are known before importing the
+          // private halves (importCrossSigningKeys silently no-ops otherwise).
+          await this.ensureOwnKeysFetched(accountId);
+          this.setPendingKey(accountId, trimmed);
+          try {
+            await crypto.bootstrapCrossSigning({ setupNewCrossSigning: false });
+          } catch (e: any) {
+            const msg = (e?.message ?? "").toLowerCase();
+            if (!msg.includes("bad mac") && !msg.includes("bad_mac")) {
+              return { ok: false, crossSigned: false, error: e?.message ?? "Could not load cross-signing keys." };
+            }
+          }
+        } finally {
+          this.clearPendingKey(accountId);
+        }
+        xs = await crypto.getCrossSigningStatus().catch(() => null);
+      }
+
+      if (!xs?.privateKeysCachedLocally?.selfSigningKey) {
+        return {
+          ok: false,
+          crossSigned: false,
+          error: xs?.privateKeysInSecretStorage
+            ? "Cross-signing secrets are stored but couldn't be decrypted with this key (bad MAC). Reset cross-signing from a working session, then retry."
+            : "Cross-signing isn't set up on this account. Set it up from another session (e.g. Element) first.",
+        };
+      }
+
+      // The actual fix: sign this device with the self-signing key and publish it.
+      await crypto.crossSignDevice(deviceId);
+
+      const status = await crypto.getDeviceVerificationStatus(userId, deviceId).catch(() => null);
+      const crossSigned = !!(status?.signedByOwner ?? status?.crossSigningVerified ?? status?.isVerified?.());
+
+      // Backfill the stuck messages: restore the backup, then retry decryption a
+      // few times to catch keys peers re-share now that we're trusted.
+      if (trimmed && crypto.loadSessionBackupPrivateKeyFromSecretStorage) {
+        this.setPendingKey(accountId, trimmed);
+        try {
+          await crypto.loadSessionBackupPrivateKeyFromSecretStorage();
+        } catch {
+          /* non-fatal */
+        } finally {
+          this.clearPendingKey(accountId);
+        }
+      }
+      if (crypto.restoreKeyBackup) {
+        if (trimmed) this.setPendingKey(accountId, trimmed);
+        crypto.restoreKeyBackup()
+          .then(() => this.retryDecryption(accountId))
+          .catch(() => {})
+          .finally(() => this.clearPendingKey(accountId));
+      }
+      this.retryDecryption(accountId);
+      setTimeout(() => this.retryDecryption(accountId), 5000);
+      setTimeout(() => this.retryDecryption(accountId), 15000);
+
+      console.log(`[AccountManager] crossSignDevice OK for ${deviceId} (crossSigned=${crossSigned}).`);
+      return { ok: true, crossSigned };
+    } catch (e: any) {
+      this.clearPendingKey(accountId);
+      console.error("[AccountManager] selfVerifyWithSecurityKey failed:", e);
+      return { ok: false, crossSigned: false, error: e?.message ?? "Verification failed." };
+    }
+  }
+
+  /**
+   * Pull megolm session keys down from the encrypted key backup and retry
+   * decrypting everything. This is the recovery path for messages this user sent
+   * from another device (or received) while this session was untrusted — the
+   * keys aren't gossiped retroactively, but they are in the backup if the
+   * originating device had backup enabled. Requires the backup decryption key,
+   * which is loaded from secret storage using the provided Security Key.
+   */
+  async restoreKeyBackupAndRetry(
+    accountId: string,
+    key: string | null,
+  ): Promise<{ ok: boolean; imported?: number; total?: number; error?: string }> {
+    const client = this.getClient(accountId);
+    if (!client) return { ok: false, error: "Account not found." };
+    const crypto = client.getCrypto() as any;
+    if (!crypto) return { ok: false, error: "Crypto backend is not running. Restart the app." };
+
+    const trimmed = key?.trim() || null;
+    if (trimmed) this.setPendingKey(accountId, trimmed);
+    try {
+      if (crypto.loadSessionBackupPrivateKeyFromSecretStorage) {
+        try {
+          await crypto.loadSessionBackupPrivateKeyFromSecretStorage();
+        } catch (e: any) {
+          console.warn("[AccountManager] loadSessionBackupPrivateKeyFromSecretStorage failed:", e?.message ?? e);
+        }
+      }
+
+      let imported: number | undefined;
+      let total: number | undefined;
+      if (crypto.restoreKeyBackup) {
+        try {
+          const res = await crypto.restoreKeyBackup();
+          imported = res?.imported;
+          total = res?.total;
+        } catch (e: any) {
+          return { ok: false, error: e?.message ?? "Key backup restore failed (no backup, or wrong key)." };
+        }
+      } else {
+        return { ok: false, error: "Key backup is not available in this SDK build." };
+      }
+
+      await this.retryDecryption(accountId);
+      setTimeout(() => this.retryDecryption(accountId), 4000);
+      console.log(`[AccountManager] restoreKeyBackup imported ${imported}/${total} keys.`);
+      return { ok: true, imported, total };
+    } finally {
+      this.clearPendingKey(accountId);
+    }
   }
 
   async acceptInvite(accountId: string, roomId: string): Promise<void> {

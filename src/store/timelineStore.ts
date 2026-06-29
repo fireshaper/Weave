@@ -21,7 +21,9 @@ interface TimelineState {
   requestJump: (roomId: string, eventId: string) => void;
   /** Clear the pending jump once handled. */
   clearJump: () => void;
-  appendMessage: (roomId: string, msg: MatrixMessage) => void;
+  /** Append a message. `markUnread` (default true) flags the room as locally
+   *  unread when it isn't the active room — pass false for replayed/own messages. */
+  appendMessage: (roomId: string, msg: MatrixMessage, markUnread?: boolean) => void;
   prependMessages: (roomId: string, msgs: MatrixMessage[]) => void;
   setMessages: (roomId: string, msgs: MatrixMessage[]) => void;
   setTyping: (roomId: string, userIds: string[]) => void;
@@ -59,14 +61,14 @@ export const useTimelineStore = create<TimelineState>((set) => ({
 
   clearJump: () => set({ jumpTarget: null }),
 
-  appendMessage: (roomId, msg) =>
+  appendMessage: (roomId, msg, markUnread = true) =>
     set((state) => {
       const existing = state.messages[roomId] ?? [];
       // deduplicate by eventId
       if (existing.find((m) => m.eventId === msg.eventId)) return state;
       const capped = [...existing, msg].slice(-500); // keep last 500
       const localUnreadsByRoom =
-        roomId !== state.activeRoomId
+        markUnread && roomId !== state.activeRoomId
           ? { ...state.localUnreadsByRoom, [roomId]: true }
           : state.localUnreadsByRoom;
       return { messages: { ...state.messages, [roomId]: capped }, localUnreadsByRoom };

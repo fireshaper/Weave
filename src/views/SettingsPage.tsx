@@ -36,6 +36,11 @@ const SettingsPage: React.FC = () => {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [showKeyDialog, setShowKeyDialog] = useState(false);
+  const [keyVerifyLoading, setKeyVerifyLoading] = useState(false);
+  const [keyVerifyMsg, setKeyVerifyMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // Whether THIS device is cross-signed (signed by our own self-signing key).
+  // This is what other clients check before sharing room keys.
+  const [deviceCrossSigned, setDeviceCrossSigned] = useState<boolean | null>(null);
   const [crossSigningStatus, setCrossSigningStatus] = useState<{
     publicKeysOnDevice: boolean;
     privateKeysInSecretStorage: boolean;
@@ -57,6 +62,13 @@ const SettingsPage: React.FC = () => {
         privateKeysCachedLocally: s.privateKeysCachedLocally,
       });
     }).catch(() => {/* ignore */});
+    const deviceId = activeAccount?.deviceId;
+    const userId = activeAccount?.userId;
+    if (userId && deviceId) {
+      crypto.getDeviceVerificationStatus(userId, deviceId)
+        .then((st) => setDeviceCrossSigned(st ? (st.signedByOwner ?? st.crossSigningVerified ?? false) : false))
+        .catch(() => setDeviceCrossSigned(null));
+    }
   }, [tab, activeAccountId]);
 
   const refreshCrossSigningStatus = async () => {
@@ -66,6 +78,12 @@ const SettingsPage: React.FC = () => {
     if (!crypto) return;
     const s = await crypto.getCrossSigningStatus().catch(() => null);
     if (s) setCrossSigningStatus({ publicKeysOnDevice: s.publicKeysOnDevice, privateKeysInSecretStorage: s.privateKeysInSecretStorage, privateKeysCachedLocally: s.privateKeysCachedLocally });
+    const deviceId = activeAccount?.deviceId;
+    const userId = activeAccount?.userId;
+    if (userId && deviceId) {
+      const st = await crypto.getDeviceVerificationStatus(userId, deviceId).catch(() => null);
+      setDeviceCrossSigned(st ? (st.signedByOwner ?? st.crossSigningVerified ?? false) : false);
+    }
   };
 
   const handleVerifyDevice = async () => {
@@ -140,6 +158,65 @@ const SettingsPage: React.FC = () => {
       setVerifyError(e?.message ?? "Failed to start verification.");
     } finally {
       setVerifyLoading(false);
+    }
+  };
+
+  // Non-interactive verification: cross-sign this device with our own
+  // self-signing key (no second session / SAS dance required). Uses the locally
+  // cached cross-signing keys if present, otherwise the saved Security Key.
+  const handleVerifyWithKey = async () => {
+    if (!activeAccountId) return;
+    setKeyVerifyLoading(true);
+    setKeyVerifyMsg(null);
+    setVerifyError(null);
+    try {
+      const savedKey = await loadE2EEKey(activeAccount?.userId ?? "").catch(() => null);
+      const result = await accountManager.selfVerifyWithSecurityKey(activeAccountId, savedKey);
+      if (result.ok) {
+        setKeyVerifyMsg({
+          kind: "ok",
+          text: result.crossSigned
+            ? "This device is now cross-signed. Stuck messages will decrypt as keys arrive — give it up to a minute."
+            : "Signed this device. If messages stay locked, re-enter your Security Key and try again.",
+        });
+        await refreshCrossSigningStatus();
+      } else if (result.needsKey) {
+        setKeyVerifyMsg({ kind: "error", text: result.error ?? "Enter your Security Key first." });
+        setShowKeyDialog(true);
+      } else {
+        setKeyVerifyMsg({ kind: "error", text: result.error ?? "Verification failed." });
+      }
+    } catch (e: any) {
+      setKeyVerifyMsg({ kind: "error", text: e?.message ?? "Verification failed." });
+    } finally {
+      setKeyVerifyLoading(false);
+    }
+  };
+
+  // Pull megolm keys from the encrypted key backup and retry decryption — the
+  // recovery path for your own older messages stuck on "Waiting for keys".
+  const handleRestoreHistory = async () => {
+    if (!activeAccountId) return;
+    setKeyVerifyLoading(true);
+    setKeyVerifyMsg(null);
+    try {
+      const savedKey = await loadE2EEKey(activeAccount?.userId ?? "").catch(() => null);
+      const result = await accountManager.restoreKeyBackupAndRetry(activeAccountId, savedKey);
+      if (result.ok) {
+        setKeyVerifyMsg({
+          kind: "ok",
+          text:
+            (result.imported ?? 0) > 0
+              ? `Restored ${result.imported} key(s) from backup. Stuck messages should decrypt now.`
+              : "Backup restore ran, but no new keys were found. Those messages may only be recoverable from the device that sent them (and only if it had key backup on).",
+        });
+      } else {
+        setKeyVerifyMsg({ kind: "error", text: result.error ?? "Restore failed." });
+      }
+    } catch (e: any) {
+      setKeyVerifyMsg({ kind: "error", text: e?.message ?? "Restore failed." });
+    } finally {
+      setKeyVerifyLoading(false);
     }
   };
 
@@ -357,6 +434,27 @@ const SettingsPage: React.FC = () => {
 
                 <div className="settings-security-row">
                   <div className="settings-security-info" style={{ paddingLeft: 0 }}>
+                    <span className="settings-security-label">Verification</span>
+                    <span className="settings-security-value">
+                      {deviceCrossSigned === null
+                        ? "Unknown"
+                        : deviceCrossSigned
+                          ? "Cross-signed (trusted by others)"
+                          : "Not cross-signed — other clients will withhold keys"}
+                    </span>
+                  </div>
+                  {deviceCrossSigned !== null && (
+                    <span
+                      className={`settings-security-badge ${deviceCrossSigned ? "settings-security-badge--ok" : "settings-security-badge--warn"}`}
+                    >
+                      {deviceCrossSigned ? <ShieldCheck size={12} /> : <ShieldX size={12} />}
+                      {deviceCrossSigned ? "Verified" : "Unverified"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="settings-security-row">
+                  <div className="settings-security-info" style={{ paddingLeft: 0 }}>
                     <span className="settings-security-label">Signed in as</span>
                     <span className="settings-security-value">{activeAccount.userId}</span>
                   </div>
@@ -382,21 +480,64 @@ const SettingsPage: React.FC = () => {
             <div className="settings-subsection">
               <h4>Verify This Device</h4>
               <p className="settings-desc">
-                Start an interactive verification from another session (e.g. Element Web or your phone)
-                to confirm this device's identity. Cross-signing keys must be loaded first.
+                Cross-sign this device so other people's clients trust it and share decryption keys.
+                The fastest way is with your Security Key — no second device needed.
+              </p>
+              {keyVerifyMsg && (
+                <p
+                  style={{
+                    color: keyVerifyMsg.kind === "ok" ? "var(--online)" : "var(--unread-badge)",
+                    fontSize: 12,
+                    margin: "4px 0",
+                  }}
+                >
+                  {keyVerifyMsg.text}
+                </p>
+              )}
+              <button
+                className="settings-btn settings-btn--primary"
+                onClick={handleVerifyWithKey}
+                disabled={keyVerifyLoading}
+                style={{ marginTop: 8 }}
+              >
+                {keyVerifyLoading
+                  ? <><Loader2 size={14} className="spinner" /> Verifying…</>
+                  : <><ShieldCheck size={14} /> Verify with Security Key</>}
+              </button>
+
+              <p className="settings-desc" style={{ marginTop: 16 }}>
+                Or start an interactive verification from another session (e.g. Element Web or your phone).
               </p>
               {verifyError && (
                 <p style={{ color: "var(--unread-badge)", fontSize: 12, margin: "4px 0" }}>{verifyError}</p>
               )}
               <button
-                className="settings-btn settings-btn--primary"
+                className="settings-btn"
                 onClick={handleVerifyDevice}
                 disabled={verifyLoading}
                 style={{ marginTop: 8 }}
               >
                 {verifyLoading
                   ? <><Loader2 size={14} className="spinner" /> Starting…</>
-                  : <><ShieldCheck size={14} /> Verify This Device</>}
+                  : <><Smartphone size={14} /> Verify from another session</>}
+              </button>
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Restore Encrypted History</h4>
+              <p className="settings-desc">
+                Pull decryption keys from your encrypted key backup. Use this for your own older
+                messages stuck on “Waiting for keys” after verifying this device.
+              </p>
+              <button
+                className="settings-btn settings-btn--primary"
+                onClick={handleRestoreHistory}
+                disabled={keyVerifyLoading}
+                style={{ marginTop: 8 }}
+              >
+                {keyVerifyLoading
+                  ? <><Loader2 size={14} className="spinner" /> Restoring…</>
+                  : <><Key size={14} /> Restore from Key Backup</>}
               </button>
             </div>
           </div>

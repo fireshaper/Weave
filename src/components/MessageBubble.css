@@ -83,6 +83,16 @@
   white-space: pre-wrap;
 }
 
+.msg-body a {
+  color: var(--accent, #4d9fff);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.msg-body a:hover {
+  text-decoration: underline;
+}
+
 .msg-redacted {
   font-size: 13px;
   color: var(--text-muted);
@@ -302,5 +312,36 @@
   flex-shrink: 0;
   margin-left: -6px;
   pointer-events: auto;
+  cursor: default;
+}
+
+/* ─── Undecryptable message placeholder + inline unlock ─── */
+.msg-encrypted {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.msg-encrypted-text {
+  font-style: italic;
+  color: var(--text-muted);
+}
+.msg-unlock-btn {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent, #5865f2);
+  background: transparent;
+  color: var(--accent, #5865f2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+.msg-unlock-btn:hover:not(:disabled) {
+  background: var(--accent, #5865f2);
+  color: #fff;
+}
+.msg-unlock-btn:disabled {
+  opacity: 0.6;
   cursor: default;
 }

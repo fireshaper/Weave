@@ -136,10 +136,62 @@
 
 /* Input area */
 .room-view-input-area {
+  position: relative;
   padding: 12px 16px 16px;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+}
+
+/* ─── @mention autocomplete ─── */
+.mention-autocomplete {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(100% - 6px);
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.12s ease-out;
+}
+
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: background 0.1s;
+}
+
+.mention-option--active {
+  background: var(--accent-muted);
+}
+
+.mention-option-name {
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.mention-option-id {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
 }
 
 .room-view-composer {
@@ -420,3 +472,40 @@
   border-color: var(--border-hover);
 }
 
+
+/* ─── E2EE unlock result banner ─── */
+.room-unlock-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 16px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.room-unlock-banner--ok {
+  background: color-mix(in srgb, var(--accent, #5865f2) 14%, transparent);
+  color: var(--text, #e6e6e6);
+  border: 1px solid color-mix(in srgb, var(--accent, #5865f2) 40%, transparent);
+}
+.room-unlock-banner--error {
+  background: color-mix(in srgb, #e74c3c 14%, transparent);
+  color: var(--text, #e6e6e6);
+  border: 1px solid color-mix(in srgb, #e74c3c 40%, transparent);
+}
+.room-unlock-banner-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.room-unlock-banner-close:hover { opacity: 1; }

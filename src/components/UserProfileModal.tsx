@@ -29,7 +29,7 @@ export interface UserProfileTarget {
 interface UserProfileModalProps {
   user: UserProfileTarget;
   onClose: () => void;
-  onMention?: (mention: string) => void;
+  onMention?: (mention: string, userId?: string) => void;
 }
 
 type Tab = "profile" | "rooms";
@@ -100,6 +100,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose, onMe
           { type: "m.room.encryption", state_key: "", content: { algorithm: "m.megolm" } },
         ],
       });
+      await accountManager.addDirectMessage(activeAccountId, user.userId, result.room_id);
       setActiveRoom(result.room_id);
       onClose();
     } catch (e) {
@@ -108,9 +109,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClose, onMe
   }, [client, activeAccountId, user.userId, setActiveRoom, onClose]);
 
   const handleMention = useCallback(() => {
-    onMention?.(user.displayName);
+    onMention?.(user.displayName, user.userId);
     onClose();
-  }, [onMention, user.displayName, onClose]);
+  }, [onMention, user.displayName, user.userId, onClose]);
 
   const handleCopy = useCallback((type: "id" | "name") => {
     const text = type === "id" ? user.userId : user.displayName;

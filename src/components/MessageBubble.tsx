@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import DOMPurify from "dompurify";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Smile, Reply, Copy, Check } from "lucide-react";
 import Avatar from "./Avatar";
 import EmojiPicker from "./EmojiPicker";
@@ -37,9 +38,13 @@ interface MessageBubbleProps {
   onContextMenuUser?: (userId: string, displayName: string, avatarUrl: string | undefined, x: number, y: number) => void;
   /** Called when the user clicks the reply quote — jumps to the replied-to event. */
   onJumpToEvent?: (eventId: string) => void;
+  /** Called when the user clicks "Unlock" on an undecryptable message. */
+  onUnlock?: () => void;
+  /** True while an unlock (verify + key restore) attempt is in flight. */
+  unlocking?: boolean;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homeserver, onReply, onReact, myUserId, replyMessage, readReceipts, onContextMenuUser, onJumpToEvent }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homeserver, onReply, onReact, myUserId, replyMessage, readReceipts, onContextMenuUser, onJumpToEvent, onUnlock, unlocking }) => {
   const [copied, setCopied] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
@@ -53,6 +58,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homes
   const formatTime = (ts: number) =>
     new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+  // Intercept clicks on any link inside the message body and open it in the
+  // system browser via the opener plugin. In the Tauri webview a bare
+  // <a target="_blank"> would otherwise be swallowed (no new-window handler),
+  // so links must be routed through openUrl explicitly.
+  const handleBodyClick = (e: React.MouseEvent) => {
+    const anchor = (e.target as HTMLElement).closest("a");
+    if (!anchor) return;
+    const href = anchor.getAttribute("href");
+    if (!href || !/^(?:https?|mailto|tel):/i.test(href)) return;
+    e.preventDefault();
+    void openUrl(href);
+  };
+
   const renderBody = () => {
     if (message.isRedacted) {
       return <span className="msg-redacted">Message deleted</span>;
@@ -60,8 +78,19 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homes
 
     if (message.isEncrypted && !message.body) {
       return (
-        <span className="msg-encrypted" style={{ fontStyle: "italic", color: "var(--text-muted)" }}>
-          🔒 Waiting for decryption keys...
+        <span className="msg-encrypted">
+          <span className="msg-encrypted-text">🔒 Waiting for decryption keys…</span>
+          {onUnlock && (
+            <button
+              type="button"
+              className="msg-unlock-btn"
+              onClick={onUnlock}
+              disabled={unlocking}
+              title="Verify this device and restore keys from backup so this conversation can decrypt"
+            >
+              {unlocking ? "Unlocking…" : "Unlock"}
+            </button>
+          )}
         </span>
       );
     }
@@ -146,16 +175,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homes
           ? stripPlainReplyFallback(message.body ?? "")
           : (message.body ?? "");
 
+        if (strippedFormatted) {
+          return (
+            <span
+              className="msg-body"
+              onClick={handleBodyClick}
+              dangerouslySetInnerHTML={{ __html: strippedFormatted }}
+            />
+          );
+        }
         return (
-          <span
-            className="msg-body"
-            dangerouslySetInnerHTML={
-              strippedFormatted
-                ? { __html: strippedFormatted }
-                : undefined
-            }
-          >
-            {!strippedFormatted ? strippedPlain : undefined}
+          <span className="msg-body" onClick={handleBodyClick}>
+            {linkifyText(strippedPlain)}
           </span>
         );
       }
@@ -187,6 +218,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homes
             <EmojiPicker
               onSelect={(emoji) => onReact(message, emoji)}
               onClose={() => setShowPicker(false)}
+              placement="bottom"
             />
           )}
         </div>
@@ -319,6 +351,34 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isGrouped, homes
     </div>
   );
 };
+
+// Convert bare URLs in a plain-text body into clickable links. Plain messages
+// (no formatted_body) are rendered as React text nodes, so we split on a URL
+// pattern and emit <a> elements for each match. Returning React nodes (rather
+// than HTML) means no escaping concerns — the surrounding text stays literal.
+const URL_REGEX = /(https?:\/\/[^\s<]+[^\s<.,:;!?"')\]}])/gi;
+
+function linkifyText(text: string): React.ReactNode {
+  if (!text) return text;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+  URL_REGEX.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = URL_REGEX.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    const url = match[0];
+    parts.push(
+      <a key={key++} href={url} target="_blank" rel="noopener noreferrer">
+        {url}
+      </a>,
+    );
+    lastIndex = match.index + url.length;
+  }
+  if (parts.length === 0) return text;
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
 
 // Strip <mx-reply>…</mx-reply> block — the Matrix spec injects this as a
 // fallback for clients without native reply rendering. Since we render our
